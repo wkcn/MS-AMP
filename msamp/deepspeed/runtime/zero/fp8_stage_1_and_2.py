@@ -491,7 +491,10 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
             else:
                 async_handles = []
                 for i, (dst, bucket_offset, numel) in enumerate(rank_and_offsets):
+                    grad_slice = tensor_to_reduce.narrow(0, int(bucket_offset), int(numel))
+                    dst_rank = dist.get_global_rank(real_dp_process_group[i], dst)
                     async_handle = dist.reduce(grad_slice, dst=dst_rank, group=real_dp_process_group[i], async_op=True)
+                    async_handles.append(async_handle)
                 for handle in async_handles:
                     handle.wait()
 
