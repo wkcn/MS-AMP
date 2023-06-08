@@ -151,7 +151,7 @@ class ModelState:
             ModelState._check_in_mem(v.amax, metas['amaxs'])
             ModelState._check_in_mem(v.amax_counter, metas['amax_counters'])
 
-    def register_scaling_metas(self, model):
+    def register_scaling_metas(self, model, dp_group):
         """Register scaling metas of the model to model state.
 
         Args:
@@ -181,6 +181,11 @@ class ModelState:
             values[key] = ModelState._flatten_scaling_metas([m[key] for m in metas])
 
         self._flattened_scaling_metas = values
+
+        # set dp_group for metas
+        for meta_dict in metas:
+            for meta in meta_dict.values():
+                meta.dp_group = dp_group
 
         # check metas memory
         for meta in metas:

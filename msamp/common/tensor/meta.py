@@ -13,7 +13,7 @@ class ScalingMeta:
     """The meta data for scaling tensor."""
     in_time_scaling: bool = True
 
-    def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1):
+    def __init__(self, qtype, scale=None, scale_inv=None, amax=None, window_size=1, dp_group=None):
         """Constructor.
 
         Args:
@@ -26,9 +26,11 @@ class ScalingMeta:
         self.qtype = qtype
         self.scale = scale if scale is not None else torch.ones((), device='cuda')
         self.scale_inv = scale_inv if scale_inv is not None else torch.ones((), device='cuda')
+        self.pre_scale = None
         self.amax = amax if amax is not None else torch.zeros((window_size, ), device='cuda')
         self.amax_counter = torch.zeros((), dtype=torch.int32)
         self.window_size = window_size
+        self.dp_group = dp_group
         # lock flag to avoid the reference of the meta changed.
         self.locked = False
 
@@ -80,24 +82,30 @@ class ScalingMeta:
 
         fp_max = Floating.qfp_max[qtype]
         sf = ScalingMeta.compute_scaling_factor(self.amax[0], self.scale, fp_max, 0)
+        if self.pre_scale is not None:
+            sf.mul_(self.pre_scale)
         self.scale.copy_(sf)
 
-    def copy_(self, src):
+    def copy_(self, src, non_blocking=False):
         """Copies the members from src into self and returns self.
 
         Args:
             src (ScalingMeta): Soruce ScalingMeta instance.
         """
         self.qtype = src.qtype
-        self.scale.copy_(src.scale)
-        self.scale_inv.copy_(src.scale_inv)
-        self.amax.copy_(src.amax)
-        self.amax_counter.copy_(src.amax_counter)
+        self.scale.copy_(src.scale, non_blocking=non_blocking)
+        self.scale_inv.copy_(src.scale_inv, non_blocking=non_blocking)
+        self.amax.copy_(src.amax, non_blocking=non_blocking)
+        self.amax_counter.copy_(src.amax_counter, non_blocking=non_blocking)
         self.window_size = src.window_size
 
     def clone(self):
         """Returns a copy of this object."""
-        return copy.deepcopy(self)
+        dp_group = self.dp_group
+        self.dp_group = None
+        obj = copy.deepcopy(self)
+        self.dp_group = obj.dp_group = dp_group
+        return obj
 
     def cuda(self):
         """Returns a copy of this object in CUDA memory."""
