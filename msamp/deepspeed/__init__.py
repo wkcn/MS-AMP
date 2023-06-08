@@ -10,7 +10,8 @@ from torch.optim import Optimizer
 from deepspeed import *    # noqa
 from deepspeed import __version__, __git_hash__, __git_branch__, log_dist, logger,  get_accelerator, \
                       DeepSpeedOptimizerCallable, DeepSpeedSchedulerCallable, DeepSpeedConfig, \
-                      DeepSpeedHybridEngine, _LRScheduler, zero, PipelineModule, PipelineEngine
+                      DeepSpeedHybridEngine, _LRScheduler, zero, PipelineModule
+from .runtime.pipe.engine import MSAMPPipelineEngine as PipelineEngine
 
 from msamp.deepspeed.runtime.engine import MSAMPDeepSpeedEngine
 
