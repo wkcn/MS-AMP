@@ -474,19 +474,26 @@ class FP8DeepSpeedZeroOptimizer(DeepSpeedZeroOptimizer):
                     tensor.view(1, -1), meta.scale, meta.amax[0], meta.scale_inv, meta.qtype
                 ).view_as(tensor)
 
-            async_handles = []
-            grad_slice_pairs = []
-            for i, (dst, bucket_offset, numel) in enumerate(rank_and_offsets):
-                grad_slice = tensor_to_reduce.narrow(0, int(bucket_offset), int(numel))
-                dst_rank = dist.get_global_rank(real_dp_process_group[i], dst)
-                fp16_grad_slice = _fp8_to_fp16(grad_slice)
-                async_handle = dist.reduce(fp16_grad_slice, dst=dst_rank, group=real_dp_process_group[i], async_op=True)
-                async_handles.append(async_handle)
-                grad_slice_pairs.append((fp16_grad_slice, grad_slice))
-            for handle in async_handles:
-                handle.wait()
-            for fp16_grad_slice, grad_slice in grad_slice_pairs:
-                grad_slice.copy_(_fp16_to_fp8(fp16_grad_slice))
+            if False:
+                async_handles = []
+                grad_slice_pairs = []
+                for i, (dst, bucket_offset, numel) in enumerate(rank_and_offsets):
+                    grad_slice = tensor_to_reduce.narrow(0, int(bucket_offset), int(numel))
+                    dst_rank = dist.get_global_rank(real_dp_process_group[i], dst)
+                    fp16_grad_slice = _fp8_to_fp16(grad_slice)
+                    async_handle = dist.reduce(fp16_grad_slice, dst=dst_rank, group=real_dp_process_group[i], async_op=True)
+                    async_handles.append(async_handle)
+                    grad_slice_pairs.append((fp16_grad_slice, grad_slice))
+                for handle in async_handles:
+                    handle.wait()
+                for fp16_grad_slice, grad_slice in grad_slice_pairs:
+                    grad_slice.copy_(_fp16_to_fp8(fp16_grad_slice))
+            else:
+                async_handles = []
+                for i, (dst, bucket_offset, numel) in enumerate(rank_and_offsets):
+                    async_handle = dist.reduce(grad_slice, dst=dst_rank, group=real_dp_process_group[i], async_op=True)
+                for handle in async_handles:
+                    handle.wait()
 
     def fp8_copy_grads_in_partition(self, param):
         """Copy the gradient of the param to a buffer belong's to it's partition.
