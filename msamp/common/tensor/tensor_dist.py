@@ -63,7 +63,7 @@ class TensorDist:
         cls._dist_tensors_after_flatten(buffer, dist_fn)
 
     @classmethod
-    def broadcast(cls, tensors, src, bucket_size=BROADCAST_BUCKET_SIZE):
+    def broadcast(cls, tensors, src, bucket_size=BROADCAST_BUCKET_SIZE, group=None):
         """Broadcast tensors across processes in one process group.
 
         Args:
@@ -76,7 +76,7 @@ class TensorDist:
             return
 
         def dist_fn(x):
-            return dist.broadcast(x, src=src)
+            return dist.broadcast(x, src=src, group=group)
 
         if isinstance(tensors[0], ScalingTensor):
             values = [p.value for p in tensors]
