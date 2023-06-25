@@ -13,8 +13,19 @@ from msamp.common.utils import DistUtil
 from msamp.nn import model_state
 
 
+def enable_fp8_wgrad(enable):
+    """Enable/disable fp8 weight gradient.
+
+    Args:
+        enable (bool): Whether to enable fp8 weight gradient.
+    """
+    _FP8GemmFunction.using_fp8_wgrad = enable
+
+
 class _FP8GemmFunction(torch.autograd.Function):
     """A function provides fp8 gemm forward and backward computations."""
+    using_fp8_wgrad = True
+
     @staticmethod
     def forward(ctx, input, weight, metas, dtype_holder):
         """Forward function.
@@ -100,6 +111,13 @@ class _FP8GemmFunction(torch.autograd.Function):
 
             # set meta for wgrad
             wgrad.meta = wgrad_meta
+
+            if _FP8GemmFunction.using_fp8_wgrad:
+                # quantize wgrad to FP8
+                wgrad = wgrad.cast(Dtypes.kfloat8_e4m3, meta=wgrad_meta, sync=True)
+                if DistUtil.get_world_size() > 1:
+                    model_state.ready_to_all_reduce_grads = True
+
             ctx.weight.backward_grad_update(wgrad)
 
         return input_grad, None, None, None

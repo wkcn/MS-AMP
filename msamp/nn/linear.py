@@ -170,11 +170,8 @@ class LinearReplacer:
             model (torch.nn.Module): Model in which all Linear modules are replaced with FP8Linear.
         """
         model = cls._replace(model, weight_qtype)
-        fp8_named_weights = [(k, p) for k, p in model.named_parameters() if isinstance(p, ScalingParameter)]
 
         fp8_names = [k for k, _ in fp8_named_weights]
-        fp8_weights = [p for _, p in fp8_named_weights]
-        TensorDist.broadcast(fp8_weights, src=0)
 
         for k, p in fp8_named_weights:
             p._param_name = k
